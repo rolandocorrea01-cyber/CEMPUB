@@ -175,8 +175,9 @@ require([
     });
 
     // ---------- ruta resaltada
+    let encuadre = null;
     function limpiar() {
-      capaRuta.removeAll(); $("#ficha").classList.add("oculta");
+      capaRuta.removeAll(); $("#ficha").classList.add("oculta"); $("#ficha").classList.remove("mini"); registros.opacity = 1; encuadre = null;
       try { history.replaceState(null, "", location.pathname); sessionStorage.removeItem("nav-destino"); } catch (e) {}
     }
     const linea = (paths, color, width, style, cap) => new Graphic({ geometry: new Polyline({ paths, spatialReference: view.spatialReference }),
@@ -204,7 +205,8 @@ require([
         const pas = [ruta.slice(0, fin)];
         capaRuta.addMany([linea(pas, BORDE.concat(0.65), 9), linea(pas, AMBAR, 5.5), linea(pas, [255, 243, 207], 1.6, "dash")]);
         if (arco.length) {
-          capaRuta.addMany([linea([arco], BORDE.concat(0.35), 7, "dot"), linea([arco], AMBAR, 5, "dot"),
+          // arco entre tumbas: rastro blanco debajo y trazos ámbar gruesos encima, para que resalte sobre los puntos
+          capaRuta.addMany([linea([arco], [255, 255, 255, 0.85], 11), linea([arco], BORDE, 7.5, "short-dash", "butt"), linea([arco], AMBAR, 5, "short-dash", "butt"),
             new Graphic({ geometry: { type: "point", x: arco[0][0], y: arco[0][1], spatialReference: view.spatialReference },
               symbol: { type: "simple-marker", size: 10, color: [255, 243, 207], outline: { color: BORDE, width: 2 } } })]);
         }
@@ -227,10 +229,11 @@ require([
       extra.forEach(g => { const e = g.extent || (g.x != null ? { xmin: g.x - 8, ymin: g.y - 8, xmax: g.x + 8, ymax: g.y + 8 } : null); if (!e) return;
         ex = ex ? { xmin: Math.min(ex.xmin, e.xmin), ymin: Math.min(ex.ymin, e.ymin), xmax: Math.max(ex.xmax, e.xmax), ymax: Math.max(ex.ymax, e.ymax) }
                 : { xmin: e.xmin, ymin: e.ymin, xmax: e.xmax, ymax: e.ymax }; });
+      registros.opacity = 0.35;   // los demás puntos se atenúan para que el recorrido destaque
       if (ex) {
         const mx = (ex.xmax - ex.xmin) * 0.12 + 4, my = (ex.ymax - ex.ymin) * 0.12 + 4;
-        view.goTo({ type: "extent", xmin: ex.xmin - mx, ymin: ex.ymin - my, xmax: ex.xmax + mx, ymax: ex.ymax + my, spatialReference: view.spatialReference },
-                  { duration: 800 }).catch(() => {});
+        encuadre = { type: "extent", xmin: ex.xmin - mx, ymin: ex.ymin - my, xmax: ex.xmax + mx, ymax: ex.ymax + my, spatialReference: view.spatialReference };
+        view.goTo(encuadre, { duration: 800 }).catch(() => {});
       }
       try { ficha(t, punto, R ? R.attributes : null); }
       catch (err) { console.error(err); $("#fc").innerHTML = `<div class="vacio">No se pudo armar la ficha de ${esc(t || "")}.</div>`; $("#ficha").classList.remove("oculta"); }
@@ -247,7 +250,8 @@ require([
       const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
       $("#fc").innerHTML = `
         <div class="cab"><div><h2>${t ? "Tumba" : "Registro"}</h2><div class="id">${esc(t || "Punto " + punto.p)}</div></div>
-          <button class="cerrar" type="button" id="cerrar">Cerrar</button></div>
+          <div class="acciones"><button class="cerrar" type="button" id="minimizar" aria-expanded="true">Ver mapa</button>
+          <button class="cerrar quitar" type="button" id="cerrar" aria-label="Quitar recorrido">✕</button></div></div>
         ${A ? `<div class="ruta">
           <div class="linea1"><span class="ent">Entrada ${esc(A.ENTRADA)}</span><span class="cif">${num(A.DIST_M, 0)} m · ~${A.MIN_A_PIE} min a pie</span></div>
           <ol>${pasos.map(x => `<li>${esc(x.charAt(0).toUpperCase() + x.slice(1))}</li>`).join("")}</ol>
@@ -266,7 +270,13 @@ require([
         <div><h3>Ubicación${punto ? " del punto " + punto.p : ""}</h3>
           <dl class="datos"><dt>UTM 17N</dt><dd>E ${num(p0.u[0], 2)} · N ${num(p0.u[1], 2)}</dd>
             <dt>Lat / Lon</dt><dd>${num(p0.c[0], 6)}, ${num(p0.c[1], 6)}</dd></dl></div>`;
-      $("#ficha").classList.remove("oculta"); $("#cerrar").onclick = limpiar; $("#fc").scrollTop = 0;
+      $("#ficha").classList.remove("oculta", "mini"); $("#cerrar").onclick = limpiar; $("#fc").scrollTop = 0;
+      $("#minimizar").onclick = () => {     // oculta la ficha pero deja el recorrido en el mapa
+        const mini = $("#ficha").classList.toggle("mini");
+        $("#minimizar").textContent = mini ? "Ver ficha" : "Ver mapa"; $("#minimizar").setAttribute("aria-expanded", String(!mini));
+        if (innerWidth < 860) view.padding = { ...view.padding, bottom: mini ? 110 : Math.round(innerHeight * 0.58) + 10 };
+        if (encuadre) view.goTo(encuadre, { duration: 500 }).catch(() => {});
+      };
       fotos(regs);
     }
 

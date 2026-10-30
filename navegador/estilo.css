@@ -112,3 +112,9 @@ h3{margin:0;font:600 12px var(--f-ui);letter-spacing:.08em;text-transform:upperc
 #btnYo:focus-visible{outline:2px solid var(--cipres);outline-offset:2px}
 #aviso{position:absolute;z-index:1100;left:50%;transform:translateX(-50%);top:calc(68px + env(safe-area-inset-top,0px));max-width:min(92vw,440px);background:var(--ink);color:var(--panel);
   font:500 14px/1.35 var(--f-ui);padding:9px 14px;border-radius:10px;box-shadow:var(--shadow);text-align:center}
+
+.acciones{display:flex;gap:6px;flex:none}
+.cerrar.quitar{padding:7px 11px;font-size:15px;line-height:1}
+#ficha.mini #fc>:not(.cab){display:none}
+#ficha.mini{max-height:none}
+#ficha.mini #fc{padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
