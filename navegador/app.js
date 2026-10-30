@@ -173,10 +173,20 @@ require([
         capaRuta.add(new Graphic({ geometry: g, symbol: { type: "simple-marker", size: 14, color: COL[punto.s], outline: { color: "white", width: 3 } } }));
         if (!extra.length) extra.push(g);
       }
-      ficha(t, punto, R ? R.attributes : null);
+      // encuadre: de la entrada a la tumba, dejando libre el espacio de la ficha
       const ancho = innerWidth >= 860;
-      view.padding = { top: ancho ? 20 : 70, left: 20, right: ancho ? 410 : 20, bottom: ancho ? 20 : Math.round(innerHeight * 0.58) };
-      view.goTo({ target: extra }, { duration: 800 }).catch(() => {});
+      view.padding = { top: ancho ? 30 : 80, left: 30, right: ancho ? 420 : 30, bottom: ancho ? 30 : Math.round(innerHeight * 0.58) + 10 };
+      let ex = null;
+      extra.forEach(g => { const e = g.extent || (g.x != null ? { xmin: g.x - 8, ymin: g.y - 8, xmax: g.x + 8, ymax: g.y + 8 } : null); if (!e) return;
+        ex = ex ? { xmin: Math.min(ex.xmin, e.xmin), ymin: Math.min(ex.ymin, e.ymin), xmax: Math.max(ex.xmax, e.xmax), ymax: Math.max(ex.ymax, e.ymax) }
+                : { xmin: e.xmin, ymin: e.ymin, xmax: e.xmax, ymax: e.ymax }; });
+      if (ex) {
+        const mx = (ex.xmax - ex.xmin) * 0.12 + 4, my = (ex.ymax - ex.ymin) * 0.12 + 4;
+        view.goTo({ type: "extent", xmin: ex.xmin - mx, ymin: ex.ymin - my, xmax: ex.xmax + mx, ymax: ex.ymax + my, spatialReference: view.spatialReference },
+                  { duration: 800 }).catch(() => {});
+      }
+      try { ficha(t, punto, R ? R.attributes : null); }
+      catch (err) { console.error(err); $("#fc").innerHTML = `<div class="vacio">No se pudo armar la ficha de ${esc(t || "")}.</div>`; $("#ficha").classList.remove("oculta"); }
       try { history.replaceState(null, "", punto ? `#p-${punto.p}` : `#t-${t}`); } catch (e) {}
     }
 
