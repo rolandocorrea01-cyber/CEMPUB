@@ -106,3 +106,9 @@ h3{margin:0;font:600 12px var(--f-ui);letter-spacing:.08em;text-transform:upperc
 #entrar button{border:0;background:var(--cipres);color:var(--cipres-ink);font:700 16px var(--f-ui);padding:13px 16px;border-radius:12px;cursor:pointer}
 #entrar button:focus-visible{outline:2px solid var(--ruta);outline-offset:3px}
 #ley{bottom:calc(30px + env(safe-area-inset-bottom,0px))}
+
+#btnYo{width:40px;height:40px;display:grid;place-items:center;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer;box-shadow:var(--shadow);margin-top:8px}
+#btnYo.activo{background:#1e88e5;color:#fff;border-color:#1e88e5}
+#btnYo:focus-visible{outline:2px solid var(--cipres);outline-offset:2px}
+#aviso{position:absolute;z-index:1100;left:50%;transform:translateX(-50%);top:calc(68px + env(safe-area-inset-top,0px));max-width:min(92vw,440px);background:var(--ink);color:var(--panel);
+  font:500 14px/1.35 var(--f-ui);padding:9px 14px;border-radius:10px;box-shadow:var(--shadow);text-align:center}

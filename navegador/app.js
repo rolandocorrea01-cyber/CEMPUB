@@ -14,8 +14,8 @@ const CFG = {
 require([
   "esri/identity/OAuthInfo", "esri/identity/IdentityManager", "esri/Map", "esri/views/MapView",
   "esri/layers/FeatureLayer", "esri/layers/TileLayer", "esri/layers/GraphicsLayer", "esri/Graphic",
-  "esri/geometry/support/webMercatorUtils", "esri/geometry/Polyline"
-], function (OAuthInfo, IdentityManager, ArcMap, MapView, FeatureLayer, TileLayer, GraphicsLayer, Graphic, wmu, Polyline) {
+  "esri/geometry/support/webMercatorUtils", "esri/geometry/Polyline", "esri/geometry/Circle"
+], function (OAuthInfo, IdentityManager, ArcMap, MapView, FeatureLayer, TileLayer, GraphicsLayer, Graphic, wmu, Polyline, Circle) {
 
   const $ = s => document.querySelector(s);
   const ESTADO = { I: ["Identificado", "s-I", "var(--ok)"], D: ["Por definir", "s-D", "var(--def)"], S: ["Sin nombre", "s-S", "var(--sn)"] };
@@ -89,6 +89,53 @@ require([
     await view.when();
     const ext = await tumbas.queryExtent();
     await view.goTo(ext.extent.expand(1.15), { animate: false });
+
+    // ---------- mi ubicación (opcional): punto azul que sigue a la persona; no se guarda ni se envía a ningún servidor
+    const capaYo = new GraphicsLayer({ title: "Mi ubicación" }); map.add(capaYo);
+    const zonaCem = ext.extent.clone().expand(1.6);
+    const btnYo = document.createElement("button");
+    btnYo.id = "btnYo"; btnYo.type = "button"; btnYo.title = "Mostrar mi ubicación"; btnYo.setAttribute("aria-pressed", "false");
+    btnYo.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+    view.ui.add(btnYo, "top-left");
+    const aviso = $("#aviso");
+    const avisar = (t, ms) => { aviso.textContent = t; aviso.hidden = !t; clearTimeout(avisar.t); if (t && ms) avisar.t = setTimeout(() => { aviso.hidden = true; }, ms); };
+    let vigia = null, primera = true;
+    const distM = (a, b) => { const R = 6371000, r = Math.PI / 180, dLa = (b[0] - a[0]) * r, dLo = (b[1] - a[1]) * r;
+      const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+    function apagarYo() {
+      if (vigia != null) navigator.geolocation.clearWatch(vigia); vigia = null; capaYo.removeAll();
+      btnYo.classList.remove("activo"); btnYo.setAttribute("aria-pressed", "false"); btnYo.title = "Mostrar mi ubicación"; avisar("");
+    }
+    btnYo.onclick = () => {
+      if (vigia != null) { apagarYo(); return; }
+      if (!("geolocation" in navigator)) { avisar("Este navegador no permite usar la ubicación.", 5000); return; }
+      primera = true; btnYo.classList.add("activo"); btnYo.setAttribute("aria-pressed", "true"); btnYo.title = "Ocultar mi ubicación";
+      avisar("Buscando su ubicación…");
+      vigia = navigator.geolocation.watchPosition(pos => {
+        const { latitude: la, longitude: lo, accuracy: acc } = pos.coords;
+        const pt = wmu.geographicToWebMercator({ type: "point", x: lo, y: la, spatialReference: { wkid: 4326 } });
+        capaYo.removeAll();
+        capaYo.addMany([
+          new Graphic({ geometry: new Circle({ center: { type: "point", x: lo, y: la, spatialReference: { wkid: 4326 } }, radius: Math.min(acc, 60), radiusUnit: "meters", geodesic: true }),
+            symbol: { type: "simple-fill", color: [30, 136, 229, 0.15], outline: { color: [30, 136, 229, 0.6], width: 1 } } }),
+          new Graphic({ geometry: pt, symbol: { type: "simple-marker", size: 15, color: [30, 136, 229], outline: { color: "white", width: 3 } } })]);
+        const dentro = zonaCem.contains(pt);
+        if (primera) {
+          primera = false;
+          if (dentro) { view.goTo({ target: pt, zoom: Math.max(view.zoom, 20) }, { duration: 600 }).catch(() => {}); }
+          else {
+            const cerca = Object.entries(ent).filter(([k]) => k !== "Administración")
+              .map(([k, f]) => { const g = wmu.webMercatorToGeographic(f.geometry); return [k, distM([la, lo], [g.y, g.x])]; }).sort((a, b) => a[1] - b[1])[0];
+            avisar(cerca ? `Está a ${cerca[1] >= 1000 ? (cerca[1] / 1000).toFixed(1) + " km" : Math.round(cerca[1]) + " m"} de la entrada ${cerca[0]}. Use “Ir a la entrada” en la ficha para llegar.` : "Está fuera del cementerio.", 9000);
+            return;
+          }
+        }
+        avisar(dentro ? `Ubicación aproximada (±${Math.round(acc)} m)` : "", dentro ? 0 : 1);
+      }, err => {
+        apagarYo();
+        avisar(err.code === 1 ? "No se dio permiso para usar la ubicación. Puede activarlo en la configuración del navegador." : "No se pudo obtener la ubicación. Intente de nuevo al aire libre.", 7000);
+      }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+    };
     $("#carga").hidden = true;
 
     // ---------- búsqueda
